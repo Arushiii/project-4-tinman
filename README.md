@@ -6,7 +6,11 @@ Reference: Baron, M., Veres, A., Wolock, S. L., Faust, A. L., Gaujoux, R., Veter
 
 # Contributors
 
-List contributor names and github user names, or email addresses if desired
+Data Curator: Teresa Rice - tpillars@bu.edu
+
+Programmer: Arushi Shrivastava - arushi08@bu.edu
+
+Analyst: Maha Naim - mnaim21@bu.edu
 
 # Repository Contents
 
