@@ -14,6 +14,8 @@ Analyst: Maha Naim - mnaim21@bu.edu
 
 # Repository Contents
 
+Files located in our repository are organized according to project role. Explanations as to what each code does and how to execute it are described below. 
+
 # Data Curator
 
 # Programmer
