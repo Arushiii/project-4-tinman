@@ -17,8 +17,26 @@ Analyst: Maha Naim - mnaim21@bu.edu
 Files located in our repository are organized according to project role. Explanations as to what each code does and how to execute it are described below. 
 
 # Data Curator
+Run files in order listed
+## commands1.sh
+Updates salmon to salmon 1.4.0, gets transcripts and primary assembly files, generates decoys text for salmon index
+## getbarcodes_stat4.py
+Reads through gzip file SRR3879604_1_bc.fastq.gz to extract barcodes and collect barcode count
+## getbarcodes_stat5.py
+Reads through gzip file SRR3879605_1_bc.fastq.gz to extract barcodes and collect barcode count
+## getbarcodes_stat6.py
+Reads through gzip file SRR3879606_1_bc.fastq.gz to extract barcodes and collect barcode count
+## combine_bc.py
+Takes output dictionary from all getbarcodes_stat#.py files and combines into one large dictionary to remove duplicates, create .csv
+## commands2.sh
+Get salmon index, get pre-map file for salmon alevin 
+## get_map.py
+Reads in pre-map file and completes the formatting, be sure to rename output file to txp2gene.tsv before running salmon alevin
+## commands3.sh
+Runs the salmon alevin with SRR3879604,SRR3879605,SRR3879606. Takes in txp2gene.tsv for the tgMap and whitelist_bc_thresh100.txt for the whitelist.
 
 # Programmer
+### see programmer folder for programmer README
 
 # Analyst
 ## analyst_code.R 
