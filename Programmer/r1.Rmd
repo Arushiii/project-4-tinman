@@ -1,0 +1,222 @@
+---
+title: "Project4_Programmer_Rscript"
+output: html_document
+---
+
+```{r}
+
+#Deliverables:
+
+#Report the number of cells and the number of genes in the unfiltered dataset
+#Report the number of cells remaining after filtering out low quality cells, and justify any filtering #criteria used
+#Report the number features you used after variance filtering, and justify the filtering criteria used
+#Report the number of clusters you identified, and report the relative proportions of cell numbers (e.g. #as a bar or pie chart)
+
+
+
+#working directory
+
+setwd('/projectnb/bf528/users/tinman/Project4/Programmer/Programmer')
+```
+
+
+```{r}
+# Alevin-Seurat Connection
+install.packages('Seurat')
+
+library(Seurat)
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("tximport")
+library(tximport)
+```
+```{r}
+files <- file.path("/projectnb/bf528/project_4_scrnaseq/GSM2230760__salmon_quant/alevin/quants_mat.gz")
+file.exists(files)
+```
+
+
+```{r}
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("fishpond")
+# Reading in the alevin quants quants
+txi <- tximport(files, type="alevin")
+```
+
+
+```{r}
+
+
+
+#convert ensmbl to gene symbols 
+genes <-  rownames(txi$counts) #get ensmbl ids
+genes <- as.character(genes)
+genes <- sub("[.][0-9]*","",genes) #remove ends
+
+library(AnnotationDbi)
+library(biomaRt)
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("EnsDb.Hsapiens.v79")
+library(EnsDb.Hsapiens.v79)
+
+ann <- select(org.Hs.eg.db, genes, "SYMBOL", "ENSEMBL") #convert
+length(ann$ENSEMBL)
+sum(duplicated(ann$ENSEMBL)) #there are 220 double mappings, the second mapping seems incorrect
+
+ann <- ann[!duplicated(ann$ENSEMBL), ] #keep the first mapping value
+
+symbols <- ifelse(is.na(ann$SYMBOL), ann$ENSEMBL, ann$SYMBOL) #if the symbol is not found use ennsembl id 
+length(symbols) #length matches original ensembl length
+
+#change rownames to gene symbols
+rownames(txi$counts) <- symbols
+
+```
+
+```{r}
+install.packages('patchwork')
+install.packages("dplyr")
+install.packages('cowplot')
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(cowplot)
+
+```
+
+
+```{r}
+# Initialize the Seurat object with the raw (non-normalized data).
+data <- CreateSeuratObject(counts = txi$counts , min.cells = 3, min.features = 200,)
+data
+
+
+
+```
+
+```{r}
+install.packages('Matrix')
+library(Matrix)
+```
+
+```{r}
+mito.genes <- grep(pattern = "^MT-", x = rownames(data@assays[["RNA"]]), value = TRUE)
+
+percent.mito <- Matrix::colSums(data@assays[["RNA"]][mito.genes, ])/Matrix::colSums(data@assays[["RNA"]])
+
+# AddMetaData adds columns to object@meta.data, and is a great place to
+# stash QC stats
+
+#Seurat v2 function, but shows compatibility in Seurat v3
+data <- AddMetaData(object = data, metadata = percent.mito, col.name = "percent.mito") 
+#in case the above function does not work simply do:
+data$percent.mito <- percent.mito
+
+VlnPlot(object = data, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3)
+tail(data@meta.data, 5)
+```
+
+```{r}
+dim(data@assays[["RNA"]]@data)
+typeof(data@assays[["RNA"]]@data)
+counts_per_cell <- Matrix::colSums(data@assays[["RNA"]]@data)
+counts_per_gene <- Matrix::rowSums(data@assays[["RNA"]]@data)
+genes_per_cell <- Matrix::colSums(data@assays[["RNA"]]@data>0) # count gene only if it has non-zero reads mapped.
+
+cells_per_gene <- Matrix::rowSums(data@assays[["RNA"]]@data>0) # only count cells where the gene is expressed
+
+length(counts_per_cell)
+length(counts_per_gene)
+
+```
+```{r}
+hist(log10(counts_per_cell+1),main='counts per cell',col='wheat')
+hist(log10(genes_per_cell+1), main='genes per cell', col='wheat')
+plot(counts_per_cell, genes_per_cell, log='xy', col='wheat')
+title('counts vs genes per cell')
+```
+
+```{r}
+#part 2
+#filter
+data <- subset(x = data, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mito >  -Inf & percent.mito < 0.05 )
+
+#normalize
+data <- NormalizeData(data, normalization.method = "LogNormalize", scale.factor = 10000)
+
+data <- FindVariableFeatures(data, selection.method = "vst", nfeatures = 2000)
+
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(data), 10)
+
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(data)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 
+plot2
+```
+
+
+```{r}
+#point 3
+all.genes <- rownames(data)
+data <- ScaleData(data, features = all.genes)
+
+
+data <- RunPCA(data, features = VariableFeatures(object = data))
+
+# Examine and visualize PCA results 
+DimPlot(object = data, reduction = "pca") 
+#heatmap 
+DimHeatmap(data, dims = 1, cells = 700, balanced = TRUE)
+
+
+# PCElbowPlot() can be used to reduce computation time
+data <- JackStraw(object = data, reduction = "pca", dims = 20, num.replicate = 100,  prop.freq = 0.1, verbose = FALSE)
+
+data <- ScoreJackStraw(object = data, dims = 1:20, reduction = "pca")
+
+JackStrawPlot(object = data, dims = 1:20, reduction = "pca")
+
+
+data <- FindNeighbors(data, reduction = "pca", dims = 1:20)
+## Computing nearest neighbor graph
+## Computing SNN
+data <- FindClusters(data, resolution = 0.5, algorithm = 1)
+
+data <- RunTSNE(object = data, dims.use = 1:10, do.fast = TRUE)
+# note that you can set do.label=T to help label individual clusters
+DimPlot(object = data, reduction = "tsne")
+
+data <- RunUMAP(data, reduction = "pca", dims = 1:20)
+DimPlot(data, reduction = "umap", split.by = "seurat_clusters")
+
+
+
+
+```
+
+```{r}
+#identify number of cells in each cluster
+# Calculate number of cells per cluster from object@ident
+cell.num <- table(data@active.ident)
+
+# Add cell number per cluster to cluster labels
+ClusterLabels = paste("Cluster", names(cell.num), paste0("(n = ", cell.num, ")"))
+
+# Order legend labels in plot in the same order as 'ClusterLabels'
+ClusterBreaks = names(cell.num)
+
+#no of cells in each cluster
+c<- table(data@active.ident)
+
+plot(c)
+plot(c,  main="Total number of cells in each cluster", xlab="Cluster", ylab="No. of cells")
+```
