@@ -1,4 +1,6 @@
-module load salmon
+# update salmon
+wget -nv https://github.com/COMBINE-lab/salmon/releases/download/v1.4.0/salmon-1.4.0_linux_x86_64.tar.gz
+tar -xvzf salmon-1.4.0_linux_x86_64.tar.gz
 
 # get transcript and primary_assembly files
 wget \
